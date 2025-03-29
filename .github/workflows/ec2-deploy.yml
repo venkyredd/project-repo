@@ -19,7 +19,10 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          # Add EC2 to known_hosts to prevent SSH verification failure
+          # 🔹 Ensure .ssh directory exists
+          mkdir -p ~/.ssh
+
+          # 🔹 Add EC2 to known_hosts to prevent SSH verification failure
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
 
           # Ensure directory exists on EC2
