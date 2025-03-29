@@ -19,18 +19,12 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          # Ensure SSH works
           mkdir -p ~/.ssh
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
 
-          # 🔹 Debug SSH connection
-          ssh -i key.pem -v $USER@$HOST "echo 'SSH Connection Successful'"
-
-          # Deploy backend
           ssh -i key.pem $USER@$HOST << 'EOF'
-            mkdir -p /home/$USER/app
-            cd /home/$USER/app
-            npm install
+            cd /home/$USER/app/backend  # 🔹 Ensure it runs inside backend
+            npm install  # 🔹 Install dependencies
             npm install -g pm2
             pm2 describe server || pm2 start server.js --name server
             pm2 restart server
