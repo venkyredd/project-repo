@@ -19,6 +19,9 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
+          # Add EC2 to known_hosts to prevent SSH verification failure
+          ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
+
           # Ensure directory exists on EC2
           ssh -i key.pem $USER@$HOST "mkdir -p /home/$USER/app"
 
@@ -26,9 +29,10 @@ jobs:
           scp -i key.pem -r backend/* $USER@$HOST:/home/$USER/app
 
           # Install dependencies & restart PM2
-          ssh -i key.pem $USER@$HOST << EOF
+          ssh -i key.pem $USER@$HOST << 'EOF'
             cd /home/$USER/app
             npm install
             npm install -g pm2
-            pm2 restart all || pm2 start server.js
+            pm2 describe server || pm2 start server.js --name server
+            pm2 restart server
           EOF
