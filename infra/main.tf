@@ -33,97 +33,35 @@ resource "aws_security_group" "backend_sg" {
   }
 }
 
-# 🔹 EC2 INSTANCE FOR BACKEND
+# 🔹 EC2 INSTANCE FOR BACKEND (With Docker Setup)
 resource "aws_instance" "backend_ec2" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
   key_name               = var.key_name
   vpc_security_group_ids = [aws_security_group.backend_sg.id]
 
+  # 🔹 Install Docker & Start the Container
+  user_data = <<-EOF
+    #!/bin/bash
+    sudo apt update -y
+    sudo apt install -y docker.io git
+    sudo systemctl start docker
+    sudo systemctl enable docker
+    sudo usermod -aG docker ubuntu
+
+    # Create backend directory
+    mkdir -p /home/ubuntu/backend
+    cd /home/ubuntu/backend
+
+    # Clone your repository (Modify the repo URL)
+    git clone https://github.com/YOUR_GITHUB_USER/YOUR_BACKEND_REPO.git .
+
+    # Build and run the container
+    docker build -t backend-app .
+    docker run -d -p 3000:3000 backend-app
+  EOF
+
   tags = {
     Name = "backend-server"
   }
-}
-
-# 🔹 S3 BUCKET FOR FRONTEND
-resource "aws_s3_bucket" "frontend" {
-  bucket = var.s3_bucket_name
-}
-
-resource "aws_s3_bucket_public_access_block" "frontend_access" {
-  bucket = aws_s3_bucket.frontend.id
-  block_public_acls   = false
-  block_public_policy = false
-}
-
-# 🔹 CLOUDFRONT FOR S3
-resource "aws_cloudfront_distribution" "cdn" {
-  origin {
-    domain_name = aws_s3_bucket.frontend.bucket_regional_domain_name
-    origin_id   = "S3-Origin"
-  }
-
-  enabled = true
-
-  default_cache_behavior {
-    target_origin_id       = "S3-Origin"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
-  }
-
-  restrictions {
-    geo_restriction {
-      restriction_type = "none"
-    }
-  }
-
-  viewer_certificate {
-    cloudfront_default_certificate = true
-  }
-}
-
-# 🔹 ECS CLUSTER (For Future Fargate Deployments)
-resource "aws_ecs_cluster" "ecs_cluster" {
-  name = var.ecs_cluster_name
-}
-
-# 🔹 ECS SERVICE
-resource "aws_ecs_service" "ecs_service" {
-  name            = var.ecs_service_name
-  cluster         = aws_ecs_cluster.ecs_cluster.id
-  desired_count   = 1
-  launch_type     = "FARGATE"
-}
-
-# 🔹 IAM ROLE FOR GITHUB ACTIONS
-resource "aws_iam_role" "github_actions_role" {
-  name = "github-actions-role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::ACCOUNT-ID-WITH-OPENID-CONNECT"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-# 🔹 ATTACH POLICY TO IAM ROLE (More Secure than Admin)
-resource "aws_iam_role_policy_attachment" "github_actions_policy" {
-  role       = aws_iam_role.github_actions_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
 }
