@@ -9,7 +9,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
+
       - name: Deploy to EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -19,20 +19,16 @@ jobs:
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
 
-          # 🔹 Ensure .ssh directory exists
+          # Ensure SSH works
           mkdir -p ~/.ssh
-
-          # 🔹 Add EC2 to known_hosts to prevent SSH verification failure
           ssh-keyscan -H $HOST >> ~/.ssh/known_hosts
 
-          # Ensure directory exists on EC2
-          ssh -i key.pem $USER@$HOST "mkdir -p /home/$USER/app"
+          # 🔹 Debug SSH connection
+          ssh -i key.pem -v $USER@$HOST "echo 'SSH Connection Successful'"
 
-          # Copy backend code to EC2
-          scp -i key.pem -r backend/* $USER@$HOST:/home/$USER/app
-
-          # Install dependencies & restart PM2
+          # Deploy backend
           ssh -i key.pem $USER@$HOST << 'EOF'
+            mkdir -p /home/$USER/app
             cd /home/$USER/app
             npm install
             npm install -g pm2
