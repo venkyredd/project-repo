@@ -9,6 +9,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
       - name: Deploy to EC2
         env:
           PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -17,5 +18,17 @@ jobs:
         run: |
           echo "$PRIVATE_KEY" > key.pem
           chmod 600 key.pem
-          scp -i key.pem -r backend $USER@$HOST:/home/$USER/app
-          ssh -i key.pem $USER@$HOST "cd /home/$USER/app && npm install && pm2 restart all"
+
+          # Ensure directory exists on EC2
+          ssh -i key.pem $USER@$HOST "mkdir -p /home/$USER/app"
+
+          # Copy backend code to EC2
+          scp -i key.pem -r backend/* $USER@$HOST:/home/$USER/app
+
+          # Install dependencies & restart PM2
+          ssh -i key.pem $USER@$HOST << EOF
+            cd /home/$USER/app
+            npm install
+            npm install -g pm2
+            pm2 restart all || pm2 start server.js
+          EOF
